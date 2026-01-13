@@ -6,6 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { Layers, Calendar, List, User, LogOut, ChevronUp } from "lucide-react"; // Ícones
 import Cookies from "js-cookie";
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  // Adicione esta linha:
+  role: "admin" | "client";
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -13,9 +21,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<{ name: string; surname: string } | null>(
-    null
-  );
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const userCookie = Cookies.get("user");
@@ -80,7 +86,7 @@ export default function DashboardLayout({
           <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-200 cursor-pointer group transition">
             <div className="flex flex-col">
               <span className="text-sm font-bold text-gray-900">
-                {user ? `${user.name} ${user.surname}` : "Carregando..."}
+                {user ? `${user.name}` : "Carregando..."}
               </span>
               <span className="text-xs text-gray-500">Cliente</span>
             </div>

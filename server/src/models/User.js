@@ -1,46 +1,39 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const { Model, DataTypes } = require("sequelize");
 
-const User = sequelize.define(
-  "User",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    name: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    surname: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true,
+class User extends Model {
+  static init(sequelize) {
+    super.init(
+      {
+        name: DataTypes.STRING,
+        surname: DataTypes.STRING,
+        email: DataTypes.STRING,
+        password_hash: DataTypes.STRING,
+        role: {
+          type: DataTypes.STRING,
+          allowNull: false,
+          defaultValue: "client",
+        },
+        zip_code: DataTypes.STRING,
+        street: DataTypes.STRING,
+        number: DataTypes.STRING,
+        complement: DataTypes.STRING,
+        district: DataTypes.STRING,
+        city: DataTypes.STRING,
+        state: DataTypes.STRING,
       },
-    },
-    password_hash: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-
-    zip_code: DataTypes.STRING,
-    street: DataTypes.STRING,
-    number: DataTypes.STRING,
-    complement: DataTypes.STRING,
-    district: DataTypes.STRING,
-    city: DataTypes.STRING,
-    state: DataTypes.STRING,
-  },
-  {
-    timestamps: true,
+      {
+        sequelize,
+      }
+    );
   }
-);
+
+  static associate(models) {
+    this.hasMany(models.Appointment, {
+      foreignKey: "user_id",
+      as: "appointments",
+    });
+    this.hasMany(models.Log, { foreignKey: "user_id", as: "logs" });
+  }
+}
 
 module.exports = User;

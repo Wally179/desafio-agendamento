@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
+const sequelize = require("../config/database"); // Certifique-se que este arquivo exporta a conexão (new Sequelize)
 const User = require("./User");
 
 const Log = sequelize.define(
@@ -32,9 +32,11 @@ const Log = sequelize.define(
   },
   {
     timestamps: true,
+    tableName: "logs",
   }
 );
 
+// Associações
 User.hasMany(Log, { foreignKey: "user_id" });
 Log.belongsTo(User, { foreignKey: "user_id" });
 
