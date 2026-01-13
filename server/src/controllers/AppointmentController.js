@@ -6,16 +6,17 @@ module.exports = {
   // --- LISTAR AGENDAMENTOS ---
   async index(req, res) {
     try {
-      const { user_id } = req.params; // Vamos pegar o ID pela rota ou token
+      const { user_id } = req.params;
 
       const appointments = await Appointment.findAll({
         where: { user_id },
-        include: { association: "User", attributes: ["name", "surname"] },
-        order: [["date", "DESC"]], // Mais recentes primeiro
+        include: { association: "user", attributes: ["name", "surname"] },
+        order: [["date", "DESC"]],
       });
 
       return res.json(appointments);
     } catch (error) {
+      console.error(error);
       return res.status(500).json({ error: "Erro ao buscar agendamentos" });
     }
   },
@@ -23,6 +24,7 @@ module.exports = {
   // --- CRIAR NOVO AGENDAMENTO ---
   async store(req, res) {
     try {
+      // CORREÇÃO: Agora pegamos o user_id dos PARAMS (URL) e não do body
       const { user_id } = req.params;
       const { date, room } = req.body;
 
@@ -30,8 +32,8 @@ module.exports = {
       const appointment = await Appointment.create({
         user_id,
         date,
-        room,
-        status: "agendado", // Status inicial padrão
+        room: room || "012",
+        status: "pending",
       });
 
       // Gera Log
@@ -44,16 +46,18 @@ module.exports = {
 
       return res.json(appointment);
     } catch (error) {
+      console.error(error);
       return res
         .status(400)
         .json({ error: "Erro ao criar agendamento", details: error.message });
     }
   },
 
-  // --- CANCELAR AGENDAMENTO ---
-  async cancel(req, res) {
+  // --- ATUALIZAR STATUS (APROVAR OU CANCELAR) ---
+  async update(req, res) {
     try {
       const { id } = req.params;
+      const { status } = req.body;
 
       const appointment = await Appointment.findByPk(id);
 
@@ -61,20 +65,21 @@ module.exports = {
         return res.status(400).json({ error: "Agendamento não encontrado" });
       }
 
-      appointment.status = "cancelado";
+      appointment.status = status;
       await appointment.save();
 
       // Gera Log
       await Log.create({
-        action: "Cancelamento de agendamento",
+        action: `Atualização de status: ${status}`,
         module: "Agendamento",
-        details: `Agendamento ${id} cancelado`,
+        details: `Agendamento ${id} alterado para ${status}`,
         user_id: appointment.user_id,
       });
 
       return res.json(appointment);
     } catch (error) {
-      return res.status(500).json({ error: "Erro ao cancelar" });
+      console.error(error);
+      return res.status(500).json({ error: "Erro ao atualizar status" });
     }
   },
 };

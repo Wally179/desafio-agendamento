@@ -1,10 +1,13 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const db = require("./config/database");
+
+// --- CORREÇÃO 1: Importa a conexão (index.js) e não as configs ---
+// Isso vai inicializar os Models (User, Appointment, Log) automaticamente.
+require("./database");
+
+// Importação das suas rotas (Mantendo o que você já tinha)
 const appointmentRoutes = require("./routes/appointmentRoutes");
-const User = require("./models/User");
-const Appointment = require("./models/Appointment");
-const Log = require("./models/Log");
 const logRoutes = require("./routes/logRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -15,22 +18,19 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Definição das rotass
 app.use("/auth", authRoutes);
 app.use("/appointments", appointmentRoutes);
 app.use("/logs", logRoutes);
 app.use("/users", userRoutes);
-app.use("/auth", authRoutes);
 
 app.get("/", (req, res) => {
   res.send("API de Agendamento rodando!");
 });
 
-app.listen(PORT, async () => {
+// --- CORREÇÃO 2: Removemos o db.sync() ---
+// Como já rodamos as migrations, o banco já está pronto.
+// Não precisamos forçar sincronização aqui.
+app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  try {
-    await db.sync({ force: false });
-    console.log("✅ Banco sincronizado!");
-  } catch (error) {
-    console.error("❌ Erro:", error);
-  }
 });

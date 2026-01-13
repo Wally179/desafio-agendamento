@@ -1,42 +1,26 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
-const User = require("./User");
+const { Model, DataTypes } = require("sequelize");
 
-const Appointment = sequelize.define(
-  "Appointment",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
-    room: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    status: {
-      type: DataTypes.ENUM("agendado", "cancelado", "em_analise", "concluido"),
-      defaultValue: "em_analise",
-    },
-    user_id: {
-      type: DataTypes.INTEGER,
-      references: {
-        model: User,
-        key: "id",
+class Appointment extends Model {
+  static init(sequelize) {
+    super.init(
+      {
+        date: DataTypes.DATE,
+        room: DataTypes.STRING,
+        status: {
+          type: DataTypes.STRING,
+          defaultValue: "pending",
+        },
       },
-      allowNull: false,
-    },
-  },
-  {
-    timestamps: true,
+      {
+        sequelize,
+        tableName: "appointments",
+      }
+    );
   }
-);
 
-User.hasMany(Appointment, { foreignKey: "user_id" });
-Appointment.belongsTo(User, { foreignKey: "user_id" });
+  static associate(models) {
+    this.belongsTo(models.User, { foreignKey: "user_id", as: "user" });
+  }
+}
 
 module.exports = Appointment;

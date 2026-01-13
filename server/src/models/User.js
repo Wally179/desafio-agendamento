@@ -8,11 +8,7 @@ class User extends Model {
         surname: DataTypes.STRING,
         email: DataTypes.STRING,
         password_hash: DataTypes.STRING,
-        role: {
-          type: DataTypes.STRING,
-          allowNull: false,
-          defaultValue: "client",
-        },
+        role: DataTypes.STRING,
         zip_code: DataTypes.STRING,
         street: DataTypes.STRING,
         number: DataTypes.STRING,
@@ -23,6 +19,7 @@ class User extends Model {
       },
       {
         sequelize,
+        tableName: "users",
       }
     );
   }
