@@ -8,6 +8,7 @@ import {
   MapPin,
   Search,
   Plus,
+  Bold,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,11 +18,14 @@ import Cookies from "js-cookie";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// --- TIPAGEM ---
 interface Appointment {
   id: number;
   date: string;
   room: string;
+
+  Room?: {
+    name: string;
+  };
   status: "agendado" | "cancelado" | "pending" | "approved" | "canceled";
   user: {
     name: string;
@@ -29,7 +33,12 @@ interface Appointment {
   };
 }
 
-// --- SCHEMA VALIDATION ---
+interface Room {
+  id: number;
+  name: string;
+  active: boolean;
+}
+
 const appointmentSchema = z.object({
   date: z.string().min(1, { message: "Selecione uma data" }),
   time: z.string().min(1, { message: "Selecione um horário" }),
@@ -40,6 +49,7 @@ type AppointmentFormData = z.infer<typeof appointmentSchema>;
 
 export default function ClientAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -65,9 +75,20 @@ export default function ClientAppointmentsPage() {
     }
   }, []);
 
+  const fetchRooms = useCallback(async () => {
+    try {
+      const response = await api.get("/rooms");
+
+      setRooms(response.data.filter((r: Room) => r.active !== false));
+    } catch (error) {
+      console.error("Erro ao buscar salas", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchAppointments();
-  }, [fetchAppointments]);
+    fetchRooms();
+  }, [fetchAppointments, fetchRooms]);
 
   async function handleCreate(data: AppointmentFormData) {
     try {
@@ -79,13 +100,15 @@ export default function ClientAppointmentsPage() {
 
       await api.post(`/appointments/${user.id}`, {
         date: finalDate,
-        room: data.room,
+        room_id: Number(data.room),
       });
+
       alert("Agendamento realizado com sucesso!");
       setIsModalOpen(false);
       reset();
       fetchAppointments();
     } catch (error) {
+      console.error(error);
       alert("Erro ao agendar.");
     } finally {
       setLoading(false);
@@ -125,10 +148,12 @@ export default function ClientAppointmentsPage() {
     return "Em análise";
   }
 
+  function getRoomName(appt: Appointment) {
+    if (appt.Room?.name) return appt.Room.name;
+    return appt.room || "Sala não definida";
+  }
+
   return (
-    // 1. LIMITADOR DE LARGURA DO CONTAINER
-    // md:max-w-full: No desktop usa o espaço disponível.
-    // max-w-[calc(100vw-32px)]: No mobile, força a largura ser a tela MENOS o padding (aprox 32px), evitando que "vaze".
     <div className="w-full md:max-w-full max-w-[calc(100vw-32px)] mx-auto">
       {/* 2. CARD */}
       <div className="bg-white border border-[#D7D7D7] rounded-lg flex flex-col w-full shadow-sm">
@@ -165,12 +190,8 @@ export default function ClientAppointmentsPage() {
         </div>
 
         {/* 3. WRAPPER DE SCROLL */}
-        {/* Este é o segredo. w-full pega a largura do pai (que está limitado). 
-            overflow-x-auto cria scroll SE o filho for maior. */}
         <div className="w-full overflow-x-auto border-t border-[#D7D7D7] md:border-t-0">
           {/* 4. TABELA FIXA */}
-          {/* min-w-[1000px] obriga o conteúdo a ser largo. 
-              Como o pai tem overflow-x-auto, isso gera a barra de rolagem APENAS aqui. */}
           <table className="w-full text-left text-sm border-collapse table-fixed min-w-[1000px]">
             <thead>
               <tr>
@@ -223,8 +244,8 @@ export default function ClientAppointmentsPage() {
                       </div>
                     </td>
                     <td className="py-5 px-4 align-middle">
-                      <span className="bg-black text-white text-xs px-4 py-1.5 rounded-full font-bold inline-block">
-                        {appt.room || "Sala 012"}
+                      <span className="bg-black text-white text-xs px-4 py-1.5 rounded-full inline-block">
+                        Sala <b>{getRoomName(appt)}</b>
                       </span>
                     </td>
                     <td className="py-5 px-4 align-middle">
@@ -316,14 +337,17 @@ export default function ClientAppointmentsPage() {
                   Selecione uma sala
                 </label>
                 <div className="relative">
+                  {/* SELECT DINÂMICO USANDO AS SALAS DO BANCO */}
                   <select
                     {...register("room")}
                     className="w-full border border-gray-300 rounded p-2 pl-10 outline-none focus:border-black appearance-none bg-white"
                   >
                     <option value="">Selecione...</option>
-                    <option value="Sala 012">Sala 012</option>
-                    <option value="Sala 013">Sala 013</option>
-                    <option value="Auditorio">Auditório</option>
+                    {rooms.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
                   </select>
                   <MapPin
                     size={18}

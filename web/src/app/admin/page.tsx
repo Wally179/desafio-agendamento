@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import api from "@/services/api";
 import Cookies from "js-cookie";
 
-// Schema de validação
 const loginSchema = z.object({
   email: z
     .string()
@@ -41,14 +40,12 @@ export default function AdminLoginPage() {
       const response = await api.post("/auth/login", data);
       const { token, user } = response.data;
 
-      // TRAVA DE SEGURANÇA: Só deixa passar se for ADMIN
       if (user.role !== "admin") {
         alert("Acesso negado. Apenas administradores.");
         setLoading(false);
         return;
       }
 
-      // Salva cookie e redireciona
       Cookies.set("token", token, { expires: 1 });
       Cookies.set("user", JSON.stringify(user), { expires: 1 });
 
@@ -62,12 +59,8 @@ export default function AdminLoginPage() {
   }
 
   return (
-    // Fundo bege exato do design (#F5F3EF)
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F3EF] p-4">
-      {/* Ícone Logo (Centralizado acima do título) */}
       <div className="mb-6">
-        {/* Usando Layers rotacionado para simular o logo do print. 
-            Se tiver o SVG exato, troque aqui. */}
         <Layers
           className="h-12 w-12 text-black transform rotate-45"
           strokeWidth={2.5}
@@ -80,7 +73,6 @@ export default function AdminLoginPage() {
 
       <div className="bg-white p-10 rounded-lg shadow-sm w-full max-w-[480px]">
         <form onSubmit={handleSubmit(handleLogin)} className="space-y-6">
-          {/* Input Email */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-900">
               E-mail{" "}
@@ -98,8 +90,6 @@ export default function AdminLoginPage() {
               </span>
             )}
           </div>
-
-          {/* Input Senha */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-900">
               Senha de acesso{" "}
@@ -126,8 +116,6 @@ export default function AdminLoginPage() {
               </span>
             )}
           </div>
-
-          {/* Botão Preto Full Width */}
           <button
             type="submit"
             disabled={loading}

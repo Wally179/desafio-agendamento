@@ -6,7 +6,6 @@ import Cookies from "js-cookie";
 import { Check, X, Calendar, Search } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-// 1. IMPORTAR O MODAL
 import { SettingsModal } from "@/components/SettingsModal";
 
 interface User {
@@ -21,7 +20,6 @@ export default function AgendamentosPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 2. ESTADO DO MODAL
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -33,32 +31,34 @@ export default function AgendamentosPage() {
     }
   }, []);
 
-  useEffect(() => {
-    async function loadData() {
-      if (!user) return;
+  const fetchAppointments = useCallback(async () => {
+    if (!user) return;
 
-      let url = "";
-      if (user.role === "admin") {
-        url = "/appointments";
-      } else {
-        url = `/appointments/${user.id}`;
-      }
-
-      try {
-        const response = await api.get(url);
-        setAppointments(response.data);
-      } catch (err) {
-        console.error("Erro ao carregar agendamentos");
-      } finally {
-        setLoading(false);
-      }
+    let url = "";
+    if (user.role === "admin") {
+      url = "/appointments";
+    } else {
+      url = `/appointments/${user.id}`;
     }
-    loadData();
+
+    try {
+      const response = await api.get(url);
+      setAppointments(response.data);
+    } catch (err) {
+      console.error("Erro ao carregar agendamentos");
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   async function handleStatus(id: number, status: "approved" | "canceled") {
     try {
       await api.put(`/appointments/${id}`, { status });
+
       setAppointments((prev) =>
         prev.map((app) => (app.id === id ? { ...app, status } : app))
       );
@@ -67,7 +67,20 @@ export default function AgendamentosPage() {
     }
   }
 
-  // --- ESTILOS VISUAIS ---
+  function getRoomName(appt: any) {
+    if (appt.room_details?.name) {
+      return appt.room_details.name;
+    }
+
+    if (appt.Room?.name) {
+      return appt.Room.name;
+    }
+
+    const legacyRoom = appt.room || "012";
+
+    return legacyRoom.length < 5 ? `Sala ${legacyRoom}` : legacyRoom;
+  }
+
   function getRowBackground(status: string) {
     switch (status) {
       case "approved":
@@ -133,7 +146,6 @@ export default function AgendamentosPage() {
 
             {user?.role === "admin" && (
               <button
-                // 4. ABRIR MODAL AO CLICAR
                 onClick={() => setIsSettingsOpen(true)}
                 className="bg-black text-white px-6 py-2.5 rounded text-sm font-medium hover:bg-gray-800 transition shadow-sm w-full md:w-auto h-full"
               >
@@ -185,7 +197,7 @@ export default function AgendamentosPage() {
                   </td>
                   <td className="py-5 px-4 align-middle">
                     <span className="bg-black text-white text-xs px-4 py-1.5 rounded-full font-bold inline-block">
-                      Sala {item.room || "012"}
+                      {getRoomName(item)}
                     </span>
                   </td>
                   <td className="py-5 px-4 align-middle">

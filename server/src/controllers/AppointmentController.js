@@ -1,15 +1,22 @@
 const Appointment = require("../models/Appointment");
 const User = require("../models/User");
 const Log = require("../models/Log");
+const Room = require("../models/Room");
 
 module.exports = {
   async indexAll(req, res) {
     try {
       const appointments = await Appointment.findAll({
-        include: {
-          association: "user",
-          attributes: ["name", "surname", "email"], // Traz dados do cliente
-        },
+        include: [
+          {
+            association: "user",
+            attributes: ["name", "surname", "email"],
+          },
+          {
+            association: "room_details",
+            attributes: ["name", "id"],
+          },
+        ],
         order: [["date", "DESC"]],
       });
       return res.json(appointments);
@@ -26,11 +33,21 @@ module.exports = {
       const { user_id } = req.params;
       const appointments = await Appointment.findAll({
         where: { user_id },
-        include: { association: "user", attributes: ["name", "surname"] },
+        include: [
+          {
+            association: "user",
+            attributes: ["name", "surname"],
+          },
+          {
+            association: "room_details",
+            attributes: ["name", "id"],
+          },
+        ],
         order: [["date", "DESC"]],
       });
       return res.json(appointments);
     } catch (error) {
+      console.error(error);
       return res.status(500).json({ error: "Erro ao buscar agendamentos" });
     }
   },
@@ -38,19 +55,27 @@ module.exports = {
   async store(req, res) {
     try {
       const { user_id } = req.params;
-      const { date, room } = req.body;
+      const { date, room_id } = req.body;
+
+      const roomExists = await Room.findByPk(room_id);
+      if (!roomExists) {
+        return res
+          .status(400)
+          .json({ error: "Sala inválida ou não encontrada." });
+      }
 
       const appointment = await Appointment.create({
         user_id,
         date,
-        room: room || "012",
+        room_id,
+        room: roomExists.name,
         status: "pending",
       });
 
       await Log.create({
         action: "Criação de agendamento",
         module: "Agendamento",
-        details: `Sala ${room} agendada para ${date}`,
+        details: `Sala "${roomExists.name}" agendada para ${date}`,
         user_id,
       });
 
