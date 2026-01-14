@@ -1,26 +1,35 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react"; // Adicionei useCallback
-import { Calendar as CalendarIcon, Plus, X, Clock, MapPin } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Calendar as CalendarIcon,
+  X,
+  Clock,
+  MapPin,
+  Search,
+  Plus,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import api from "@/services/api";
 import Cookies from "js-cookie";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-// --- TIPO DO DADO QUE VEM DO BACKEND ---
+// --- TIPAGEM ---
 interface Appointment {
   id: number;
   date: string;
   room: string;
-  status: "agendado" | "cancelado" | "em_analise" | "concluido";
-  User: {
+  status: "agendado" | "cancelado" | "pending" | "approved" | "canceled";
+  user: {
     name: string;
     surname: string;
   };
 }
 
-// --- VALIDAÇÃO DO FORMULÁRIO (Modal) ---
+// --- SCHEMA VALIDATION ---
 const appointmentSchema = z.object({
   date: z.string().min(1, { message: "Selecione uma data" }),
   time: z.string().min(1, { message: "Selecione um horário" }),
@@ -29,12 +38,11 @@ const appointmentSchema = z.object({
 
 type AppointmentFormData = z.infer<typeof appointmentSchema>;
 
-export default function AppointmentsPage() {
+export default function ClientAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // React Hook Form para o Modal
   const {
     register,
     handleSubmit,
@@ -44,7 +52,6 @@ export default function AppointmentsPage() {
     resolver: zodResolver(appointmentSchema),
   });
 
-  // --- 1. BUSCAR AGENDAMENTOS (Listar) ---
   const fetchAppointments = useCallback(async () => {
     try {
       const userCookie = Cookies.get("user");
@@ -58,164 +65,199 @@ export default function AppointmentsPage() {
     }
   }, []);
 
-  // Carrega a lista assim que a página abre
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
 
-  // --- 2. CRIAR NOVO AGENDAMENTO ---
   async function handleCreate(data: AppointmentFormData) {
     try {
       setLoading(true);
       const userCookie = Cookies.get("user");
       if (!userCookie) return;
       const user = JSON.parse(userCookie);
-
-      // Junta Data e Hora num formato ISO para o Banco (YYYY-MM-DDTHH:mm:00)
       const finalDate = `${data.date}T${data.time}:00`;
 
       await api.post(`/appointments/${user.id}`, {
         date: finalDate,
         room: data.room,
       });
-
       alert("Agendamento realizado com sucesso!");
-      setIsModalOpen(false); // Fecha o modal
-      reset(); // Limpa o formulário
-      fetchAppointments(); // Atualiza a lista na hora
+      setIsModalOpen(false);
+      reset();
+      fetchAppointments();
     } catch (error) {
-      alert("Erro ao agendar. Tente novamente.");
-      console.error(error);
+      alert("Erro ao agendar.");
     } finally {
       setLoading(false);
     }
   }
 
-  // --- 3. CANCELAR AGENDAMENTO ---
   async function handleCancel(id: number) {
-    if (!confirm("Tem certeza que deseja cancelar este agendamento?")) return;
-
+    if (!confirm("Deseja cancelar este agendamento?")) return;
     try {
-      await api.patch(`/appointments/${id}/cancel`);
-      fetchAppointments(); // Atualiza a lista
+      await api.put(`/appointments/${id}`, { status: "canceled" });
+      fetchAppointments();
     } catch (error) {
       alert("Erro ao cancelar.");
     }
   }
 
-  // Função auxiliar para formatar data bonita (Ex: 22/01/2025 às 16:00)
-  function formatDate(isoString: string) {
-    const date = new Date(isoString);
-    return (
-      date.toLocaleDateString("pt-BR") +
-      " às " +
-      date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-    );
+  function getRowBackground(status: string) {
+    const s = status.toLowerCase();
+    if (s === "agendado" || s === "approved") return "bg-[#F0FDFA]";
+    if (s === "cancelado" || s === "canceled") return "bg-[#FEF2F2]";
+    return "bg-white";
+  }
+
+  function getBadgeStyle(status: string) {
+    const s = status.toLowerCase();
+    if (s === "agendado" || s === "approved")
+      return "border-teal-400 text-teal-600 bg-white";
+    if (s === "cancelado" || s === "canceled")
+      return "border-red-400 text-red-600 bg-white";
+    return "border-[#D7D7D7] text-gray-500 bg-white";
+  }
+
+  function getStatusText(status: string) {
+    const s = status.toLowerCase();
+    if (s === "agendado" || s === "approved") return "Agendado";
+    if (s === "cancelado" || s === "canceled") return "Cancelado";
+    return "Em análise";
   }
 
   return (
-    <div>
-      {/* --- HEADER --- */}
-      <div className="flex justify-between items-end mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-black mb-1">Agendamento</h1>
-          <p className="text-gray-500">Acompanhe todos os seus agendamentos</p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-black text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-800 transition"
-        >
-          <Plus size={20} />
-          Novo Agendamento
-        </button>
-      </div>
+    // 1. LIMITADOR DE LARGURA DO CONTAINER
+    // md:max-w-full: No desktop usa o espaço disponível.
+    // max-w-[calc(100vw-32px)]: No mobile, força a largura ser a tela MENOS o padding (aprox 32px), evitando que "vaze".
+    <div className="w-full md:max-w-full max-w-[calc(100vw-32px)] mx-auto">
+      {/* 2. CARD */}
+      <div className="bg-white border border-[#D7D7D7] rounded-lg flex flex-col w-full shadow-sm">
+        {/* HEADER (Padding normal) */}
+        <div className="p-4 md:p-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            {/* Filtros */}
+            <div className="flex flex-col md:flex-row gap-4 w-full md:flex-1">
+              <div className="border border-[#D7D7D7] rounded px-3 py-2.5 w-full md:max-w-md flex items-center focus-within:border-black transition bg-white">
+                <Search
+                  size={20}
+                  className="text-gray-400 mr-3 flex-shrink-0"
+                />
+                <input
+                  placeholder="Filtre por nome"
+                  className="outline-none w-full text-sm text-gray-700 placeholder:text-gray-400 bg-transparent"
+                />
+              </div>
+              <div className="border border-[#D7D7D7] rounded px-3 py-2.5 w-full md:w-48 flex items-center justify-between text-gray-500 text-sm cursor-pointer hover:border-gray-400 transition bg-white">
+                <span>Selecione</span>
+                <CalendarIcon size={18} />
+              </div>
+            </div>
 
-      {/* --- LISTA VAZIA (Se não tiver nada) --- */}
-      {appointments.length === 0 ? (
-        <div className="border border-gray-200 rounded-lg p-12 flex flex-col items-center justify-center text-center h-96 bg-white shadow-sm">
-          <div className="bg-gray-100 p-4 rounded-full mb-4">
-            <CalendarIcon size={48} className="text-gray-400" />
+            {/* Botão */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-black text-white px-6 py-2.5 rounded text-sm font-medium hover:bg-gray-800 transition shadow-sm w-full md:w-auto flex items-center justify-center gap-2"
+            >
+              <Plus size={18} />
+              Novo Agendamento
+            </button>
           </div>
-          <h3 className="text-xl font-medium text-gray-900 mb-2">
-            Nada por aqui ainda...
-          </h3>
-          <p className="text-gray-500 max-w-sm">
-            Você ainda não realizou nenhum agendamento. Clique no botão acima
-            para começar.
-          </p>
         </div>
-      ) : (
-        /* --- TABELA DE AGENDAMENTOS --- */
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-          <table className="w-full text-left border-collapse">
+
+        {/* 3. WRAPPER DE SCROLL */}
+        {/* Este é o segredo. w-full pega a largura do pai (que está limitado). 
+            overflow-x-auto cria scroll SE o filho for maior. */}
+        <div className="w-full overflow-x-auto border-t border-[#D7D7D7] md:border-t-0">
+          {/* 4. TABELA FIXA */}
+          {/* min-w-[1000px] obriga o conteúdo a ser largo. 
+              Como o pai tem overflow-x-auto, isso gera a barra de rolagem APENAS aqui. */}
+          <table className="w-full text-left text-sm border-collapse table-fixed min-w-[1000px]">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500 uppercase">
-                <th className="p-4 font-medium">Data agendamento</th>
-                <th className="p-4 font-medium">Nome</th>
-                <th className="p-4 font-medium">Sala</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium text-right">Ação</th>
+              <tr>
+                <th className="w-[20%] py-4 px-6 font-semibold text-gray-900 border-b border-[#D7D7D7]">
+                  Data agendamento ↕
+                </th>
+                <th className="w-[25%] py-4 px-4 font-semibold text-gray-900 border-b border-[#D7D7D7]">
+                  Nome
+                </th>
+                <th className="w-[20%] py-4 px-4 font-semibold text-gray-900 border-b border-[#D7D7D7]">
+                  Sala de agendamento
+                </th>
+                <th className="w-[20%] py-4 px-4 font-semibold text-gray-900 border-b border-[#D7D7D7]">
+                  Status transação
+                </th>
+                <th className="w-[15%] py-4 px-6 font-semibold text-gray-900 text-right border-b border-[#D7D7D7]">
+                  Ação
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {appointments.map((appt) => (
-                <tr key={appt.id} className="hover:bg-gray-50 transition">
-                  <td className="p-4 text-sm text-gray-700">
-                    {formatDate(appt.date)}
-                  </td>
-                  <td className="p-4 text-sm text-gray-900 font-medium">
-                    {appt.User?.name} {appt.User?.surname}
-                    <br />
-                    <span className="text-xs text-gray-400 font-normal">
-                      Cliente
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <span className="bg-black text-white text-xs px-2 py-1 rounded-full font-bold">
-                      {appt.room}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <span
-                      className={`text-xs px-3 py-1 rounded-full border ${
-                        appt.status === "agendado"
-                          ? "bg-green-50 text-green-600 border-green-200"
-                          : appt.status === "cancelado"
-                          ? "bg-red-50 text-red-600 border-red-200"
-                          : "bg-gray-50 text-gray-600 border-gray-200"
-                      }`}
-                    >
-                      {appt.status === "agendado"
-                        ? "Agendado"
-                        : appt.status === "cancelado"
-                        ? "Cancelado"
-                        : "Em análise"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    {appt.status !== "cancelado" && (
-                      <button
-                        onClick={() => handleCancel(appt.id)}
-                        className="text-gray-400 hover:text-black transition"
-                        title="Cancelar"
-                      >
-                        <X
-                          size={20}
-                          className="bg-black text-white rounded-full p-1"
-                        />
-                      </button>
-                    )}
+            <tbody>
+              {appointments.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-gray-500">
+                    <div className="flex flex-col items-center justify-center">
+                      <CalendarIcon size={40} className="text-gray-300 mb-2" />
+                      <p>Nenhum agendamento encontrado.</p>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                appointments.map((appt) => (
+                  <tr
+                    key={appt.id}
+                    className={`${getRowBackground(
+                      appt.status
+                    )} border-b border-[#D7D7D7] last:border-0 transition-colors`}
+                  >
+                    <td className="py-5 px-6 text-gray-600 align-middle">
+                      {format(new Date(appt.date), "dd/MM/yyyy 'às' HH:mm", {
+                        locale: ptBR,
+                      })}
+                    </td>
+                    <td className="py-5 px-4 align-middle">
+                      <div className="font-bold text-gray-900 text-base truncate">
+                        {appt.user?.name} {appt.user?.surname}
+                      </div>
+                      <div className="text-gray-500 text-xs mt-0.5">
+                        Cliente
+                      </div>
+                    </td>
+                    <td className="py-5 px-4 align-middle">
+                      <span className="bg-black text-white text-xs px-4 py-1.5 rounded-full font-bold inline-block">
+                        {appt.room || "Sala 012"}
+                      </span>
+                    </td>
+                    <td className="py-5 px-4 align-middle">
+                      <span
+                        className={`px-4 py-1.5 rounded-full text-xs font-medium border inline-block whitespace-nowrap ${getBadgeStyle(
+                          appt.status
+                        )}`}
+                      >
+                        {getStatusText(appt.status)}
+                      </span>
+                    </td>
+                    <td className="py-5 px-6 align-middle text-right">
+                      {getStatusText(appt.status) !== "Cancelado" && (
+                        <button
+                          onClick={() => handleCancel(appt.id)}
+                          className="w-8 h-8 rounded-full bg-black text-white inline-flex items-center justify-center hover:bg-gray-800 transition shadow-sm"
+                          title="Cancelar"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
 
-      {/* --- MODAL (Novo Agendamento) --- */}
+      {/* --- MODAL --- */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold">Novo Agendamento</h2>
@@ -226,9 +268,7 @@ export default function AppointmentsPage() {
                 <X size={24} />
               </button>
             </div>
-
             <form onSubmit={handleSubmit(handleCreate)} className="space-y-4">
-              {/* Data */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Selecione uma data
@@ -250,8 +290,6 @@ export default function AppointmentsPage() {
                   </span>
                 )}
               </div>
-
-              {/* Horário */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Selecione um horário
@@ -273,8 +311,6 @@ export default function AppointmentsPage() {
                   </span>
                 )}
               </div>
-
-              {/* Sala */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Selecione uma sala
@@ -300,7 +336,6 @@ export default function AppointmentsPage() {
                   </span>
                 )}
               </div>
-
               <button
                 type="submit"
                 disabled={loading}

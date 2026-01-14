@@ -1,7 +1,10 @@
 const express = require("express");
-const routes = express.Router();
 const LogController = require("../controllers/LogController");
 
-routes.get("/:user_id", LogController.index);
+const router = express.Router();
 
-module.exports = routes;
+router.get("/", LogController.indexAll);
+
+router.get("/:user_id", LogController.index);
+
+module.exports = router;

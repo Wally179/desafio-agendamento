@@ -123,14 +123,6 @@ export default function ProfilePage() {
   return (
     // ADICIONADO: 'max-w-xl mx-auto' para centralizar tudo na tela
     <div className="w-full max-w-xl mx-auto">
-      {/* Header Centralizado */}
-      <div className="mb-8 text-center sm:text-left">
-        <h1 className="text-3xl font-bold text-black mb-1">Minha conta</h1>
-        <p className="text-gray-500">
-          Ajuste informações da sua conta de forma simples
-        </p>
-      </div>
-
       <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 w-full">
         <form onSubmit={handleSubmit(handleUpdate)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

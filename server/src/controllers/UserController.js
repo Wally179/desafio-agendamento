@@ -3,6 +3,19 @@ const User = require("../models/User");
 const Log = require("../models/Log");
 
 module.exports = {
+  async index(req, res) {
+    try {
+      // Busca todos que NÃO são admin (apenas clientes)
+      const users = await User.findAll({
+        where: { role: "client" },
+        order: [["name", "ASC"]],
+      });
+      return res.json(users);
+    } catch (error) {
+      return res.status(500).json({ error: "Erro ao listar clientes" });
+    }
+  },
+
   // --- BUSCAR DADOS DO PERFIL ---
   async show(req, res) {
     try {

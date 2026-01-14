@@ -3,32 +3,43 @@ const User = require("../models/User");
 const Log = require("../models/Log");
 
 module.exports = {
-  // --- LISTAR AGENDAMENTOS ---
+  async indexAll(req, res) {
+    try {
+      const appointments = await Appointment.findAll({
+        include: {
+          association: "user",
+          attributes: ["name", "surname", "email"], // Traz dados do cliente
+        },
+        order: [["date", "DESC"]],
+      });
+      return res.json(appointments);
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ error: "Erro ao buscar todos agendamentos" });
+    }
+  },
+
   async index(req, res) {
     try {
       const { user_id } = req.params;
-
       const appointments = await Appointment.findAll({
         where: { user_id },
         include: { association: "user", attributes: ["name", "surname"] },
         order: [["date", "DESC"]],
       });
-
       return res.json(appointments);
     } catch (error) {
-      console.error(error);
       return res.status(500).json({ error: "Erro ao buscar agendamentos" });
     }
   },
 
-  // --- CRIAR NOVO AGENDAMENTO ---
   async store(req, res) {
     try {
-      // CORREÇÃO: Agora pegamos o user_id dos PARAMS (URL) e não do body
       const { user_id } = req.params;
       const { date, room } = req.body;
 
-      // Cria o agendamento
       const appointment = await Appointment.create({
         user_id,
         date,
@@ -36,7 +47,6 @@ module.exports = {
         status: "pending",
       });
 
-      // Gera Log
       await Log.create({
         action: "Criação de agendamento",
         module: "Agendamento",
@@ -53,7 +63,6 @@ module.exports = {
     }
   },
 
-  // --- ATUALIZAR STATUS (APROVAR OU CANCELAR) ---
   async update(req, res) {
     try {
       const { id } = req.params;
@@ -68,7 +77,6 @@ module.exports = {
       appointment.status = status;
       await appointment.save();
 
-      // Gera Log
       await Log.create({
         action: `Atualização de status: ${status}`,
         module: "Agendamento",
