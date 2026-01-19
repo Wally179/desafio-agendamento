@@ -14,6 +14,7 @@ import {
   Loader2,
   X,
 } from "lucide-react";
+import { Logo } from "./Logo";
 
 interface User {
   id: number;
@@ -87,10 +88,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* 1. TOPO: LOGO */}
         <div className="h-24 flex items-center px-8 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <Layers className="h-8 w-8 text-black transform rotate-45" />
-            <span className="font-bold text-xl tracking-tight text-gray-900">
-              Portal
-            </span>
+            <Logo className="h-8 w-8 text-black transform" />
           </div>
           <button onClick={onClose} className="md:hidden ml-auto text-gray-500">
             <X size={24} />

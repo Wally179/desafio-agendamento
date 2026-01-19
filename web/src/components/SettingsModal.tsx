@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Clock, Plus, ChevronDown, ArrowLeft } from "lucide-react";
+import { X, Clock, Plus, ChevronDown, ArrowLeft, Loader2 } from "lucide-react";
 import api from "@/services/api";
+import { Toast } from "@/components/Toast";
 
 interface RoomFromAPI {
   id: number;
@@ -20,9 +21,15 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [rooms, setRooms] = useState<RoomFromAPI[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     id: 0,
@@ -30,6 +37,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     timeRange: "",
     duration: "30",
   });
+
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+  };
 
   async function fetchRooms() {
     try {
@@ -44,7 +55,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }
     } catch (error) {
       console.error("Erro ao buscar salas:", error);
-      alert("Erro ao carregar as salas.");
+      showToast("Erro ao carregar as salas.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -85,35 +96,45 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   function handleCancelCreation() {
     setIsCreating(false);
-
     if (rooms.length > 0) {
       selectRoom(rooms[0]);
     }
   }
 
   async function handleSave() {
-    try {
-      const [startTime, endTime] = formData.timeRange.split(" - ");
+    const times = formData.timeRange.split("-");
+    if (times.length !== 2) {
+      return showToast("Formato inválido. Use 'HH:mm - HH:mm'", "error");
+    }
 
-      if (!startTime || !endTime) {
-        return alert("Formato de horário inválido. Use 'HH:mm - HH:mm'");
-      }
+    const startTime = times[0].trim();
+    const endTime = times[1].trim();
+
+    if (!startTime || !endTime) {
+      return showToast("Horários inválidos.", "error");
+    }
+
+    try {
+      setIsSubmitting(true);
 
       const payload = {
         name: formData.name,
-        start_time: startTime.trim(),
-        end_time: endTime.trim(),
+        start_time: startTime,
+        end_time: endTime,
         slot_duration: Number(formData.duration),
       };
 
       if (isCreating) {
-        if (!formData.name) return alert("Dê um nome para a sala.");
+        if (!formData.name) {
+          setIsSubmitting(false);
+          return showToast("Dê um nome para a sala.", "error");
+        }
 
         await api.post("/rooms", payload);
-        alert("Sala criada com sucesso!");
+        showToast("Sala criada com sucesso!", "success");
 
         setIsCreating(false);
-        fetchRooms();
+        await fetchRooms();
       } else {
         await api.put(`/rooms/${formData.id}`, {
           start_time: payload.start_time,
@@ -121,29 +142,36 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           slot_duration: payload.slot_duration,
         });
 
-        alert("Sala atualizada com sucesso!");
-        fetchRooms();
+        showToast("Sala atualizada com sucesso!", "success");
+        await fetchRooms();
       }
     } catch (error) {
       console.error("Erro ao salvar:", error);
-      alert("Erro ao salvar as alterações.");
+      showToast("Erro ao salvar as alterações.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   if (!isOpen) return null;
 
   return (
-    // 1. ALTERAÇÃO AQUI: onClick={onClose} no container pai (fundo preto)
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 transition-opacity"
       onClick={onClose}
     >
-      {/* 2. ALTERAÇÃO AQUI: onClick stopPropagation no filho (conteúdo branco) */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div
         className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* HEADER */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">
             {isCreating ? "Nova Sala" : "Ajustes de agendamento"}
@@ -156,9 +184,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* CORPO */}
         <div className="p-6 space-y-5">
-          {/* NOME DA SALA (Select ou Input) */}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium text-gray-700">
@@ -208,7 +234,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             )}
           </div>
 
-          {/* HORÁRIO (Start - End) */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">
               Horário Inicial & Final da sala
@@ -230,7 +255,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <p className="text-[10px] text-gray-400">Formato: HH:mm - HH:mm</p>
           </div>
 
-          {/* DURAÇÃO (Slot) */}
+          {/* DURAÇÃO */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">
               Bloco de Horários de agendamento
@@ -256,7 +281,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
-          {/* BOTÃO ADICIONAR (Some se já estiver criando) */}
           {!isCreating && (
             <div className="border-t border-gray-100 pt-2">
               <button
@@ -270,13 +294,26 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           )}
         </div>
 
-        {/* FOOTER */}
         <div className="p-6 pt-2">
           <button
             onClick={handleSave}
-            className="w-full bg-black text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition shadow-sm"
+            disabled={isSubmitting || isLoading}
+            className={`w-full bg-black text-white font-medium py-3 rounded-lg transition shadow-sm flex items-center justify-center gap-2 ${
+              isSubmitting || isLoading
+                ? "opacity-75 cursor-not-allowed"
+                : "hover:bg-gray-800"
+            }`}
           >
-            {isCreating ? "Criar Sala" : "Salvar Alterações"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="animate-spin w-5 h-5" />
+                Salvando...
+              </>
+            ) : isCreating ? (
+              "Criar Sala"
+            ) : (
+              "Salvar Alterações"
+            )}
           </button>
         </div>
       </div>

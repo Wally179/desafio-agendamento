@@ -8,6 +8,7 @@ import { Eye, EyeOff, Layers } from "lucide-react";
 import { useRouter } from "next/navigation";
 import api from "@/services/api";
 import Cookies from "js-cookie";
+import { Logo } from "@/components/Logo";
 
 const loginSchema = z.object({
   email: z
@@ -61,10 +62,7 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F3EF] p-4">
       <div className="mb-6">
-        <Layers
-          className="h-12 w-12 text-black transform rotate-45"
-          strokeWidth={2.5}
-        />
+        <Logo className="h-12 w-12 text-black" />
       </div>
 
       <h1 className="text-3xl font-bold mb-8 text-black tracking-tight">
