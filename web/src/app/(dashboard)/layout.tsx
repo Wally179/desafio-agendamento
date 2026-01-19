@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { PageHeader } from "@/components/PageHeader";
 import { Menu, Layers } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 export default function DashboardLayout({
   children,
@@ -13,8 +14,6 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    // 1. h-screen: Ocupa exatamente a altura da janela
-    // 2. overflow-hidden: Remove a barra de rolagem da janela inteira
     <div className="flex h-screen overflow-hidden bg-white">
       {/* Sidebar Fixa */}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -30,16 +29,11 @@ export default function DashboardLayout({
             <Menu size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <Layers className="h-6 w-6 text-black transform rotate-45" />
-            <span className="font-bold text-lg">Portal</span>
+            <Logo />
           </div>
           <div className="w-10"></div>
         </div>
 
-        {/* AQUI ESTÁ O TRUQUE: 
-           O PageHeader e o conteúdo estão dentro de uma div que permite scroll (overflow-y-auto).
-           Isso faz com que o Sidebar fique parado e só esse miolo role.
-        */}
         <div className="flex-1 overflow-y-auto">
           <PageHeader />
 

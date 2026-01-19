@@ -9,9 +9,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "@/services/api";
 import Cookies from "js-cookie";
+import { Logo } from "@/components/Logo";
 
-// --- CORREÇÃO DO ZOD AQUI ---
-// A versão nova exige que a mensagem seja um objeto { message: '...' }
+// Schema de validação
 const loginSchema = z.object({
   email: z
     .string()
@@ -39,18 +39,13 @@ export default function LoginPage() {
   async function handleLogin(data: LoginFormData) {
     try {
       setLoading(true);
-
-      // Faz o login no backend
       const response = await api.post("/auth/login", data);
       const { token, user } = response.data;
 
-      // Salva token e usuário nos cookies
       Cookies.set("token", token, { expires: 7 });
       Cookies.set("user", JSON.stringify(user), { expires: 7 });
 
-      // Redireciona (vamos criar essa rota depois)
       router.push("/appointments");
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error(error);
@@ -61,88 +56,103 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="flex justify-between items-center p-6 max-w-7xl mx-auto w-full">
+    <div className="min-h-screen flex flex-col bg-[#F6F4F1]">
+      {/* HEADER */}
+      <header className="flex justify-between items-center px-8 py-6 w-full">
         <div className="flex items-center gap-2">
-          <Layers className="h-8 w-8 text-black transform rotate-45" />
+          {/* Logo simples preta */}
+          <Logo className="h-8 w-8 text-black" />
         </div>
         <Link
           href="/register"
-          className="bg-black text-white px-6 py-2 rounded text-sm font-medium hover:bg-gray-800 transition"
+          className="bg-black text-white px-8 py-2.5 rounded text-sm font-medium hover:bg-gray-800 transition shadow-sm"
         >
           Cadastre-se
         </Link>
       </header>
 
+      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-bold mb-8 text-black">
+        {/* 2. TÍTULO FORA DO CARD */}
+        <h1 className="text-3xl font-bold mb-8 text-black tracking-tight">
           Entre na sua conta
         </h1>
 
-        <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-100 w-full max-w-md">
+        {/* 3. CARD BRANCO */}
+        <div className="bg-white p-8 rounded-lg border border-gray-200 w-full max-w-[480px] shadow-sm">
           <form onSubmit={handleSubmit(handleLogin)} className="space-y-6">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">
+            {/* Input E-mail */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-900">
                 E-mail{" "}
-                <span className="text-gray-400 font-normal">(Obrigatório)</span>
+                <span className="text-gray-500 font-normal text-xs ml-1">
+                  (Obrigatório)
+                </span>
               </label>
               <input
                 {...register("email")}
                 type="email"
                 placeholder="Insira seu e-mail"
-                className="w-full border border-gray-200 rounded p-3 text-sm outline-none focus:border-black transition"
+                className="w-full border border-gray-300 rounded px-4 py-3 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black transition placeholder:text-gray-400"
               />
               {errors.email && (
-                <span className="text-xs text-red-500">
+                <span className="text-xs text-red-500 font-medium">
                   {errors.email.message}
                 </span>
               )}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">
+            {/* Input Senha */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-900">
                 Senha de acesso{" "}
-                <span className="text-gray-400 font-normal">(Obrigatório)</span>
+                <span className="text-gray-500 font-normal text-xs ml-1">
+                  (Obrigatório)
+                </span>
               </label>
               <div className="relative">
                 <input
                   {...register("password")}
                   type={showPassword ? "text" : "password"}
                   placeholder="Insira sua senha"
-                  className="w-full border border-gray-200 rounded p-3 text-sm outline-none focus:border-black transition pr-10"
+                  className="w-full border border-gray-300 rounded px-4 py-3 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black transition pr-10 placeholder:text-gray-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-3.5 text-gray-400 hover:text-black transition"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
               {errors.password && (
-                <span className="text-xs text-red-500">
+                <span className="text-xs text-red-500 font-medium">
                   {errors.password.message}
                 </span>
               )}
             </div>
 
+            {/* Botão de Ação */}
             <button
               type="submit"
               disabled={!isValid || loading}
-              className={`w-full py-3 rounded font-medium transition ${
+              className={`w-full py-3.5 rounded font-bold text-sm transition mt-2 ${
                 isValid
-                  ? "bg-black text-white hover:bg-gray-800"
-                  : "bg-gray-300 text-white cursor-not-allowed"
+                  ? "bg-black text-white hover:bg-gray-800 shadow-md"
+                  : "bg-[#CCCCCC] text-white cursor-not-allowed" // Cinza claro igual ao design quando desabilitado
               }`}
             >
               {loading ? "Entrando..." : "Acessar conta"}
             </button>
 
-            <div className="text-center text-sm text-gray-600 mt-4">
-              Ainda não tem um cadastro?{" "}
+            {/* Link Rodapé do Card */}
+            <div className="flex items-center justify-between mt-6 pt-2">
+              <p className="text-sm text-gray-600">
+                Ainda não tem um cadastro?
+              </p>
               <Link
                 href="/register"
-                className="font-bold text-black underline hover:text-gray-800"
+                className="text-sm font-bold text-black border-b border-black hover:opacity-80 transition pb-0.5"
               >
                 Cadastre-se
               </Link>
