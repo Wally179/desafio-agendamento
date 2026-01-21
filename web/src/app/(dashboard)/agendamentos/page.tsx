@@ -10,6 +10,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -26,11 +27,9 @@ interface User {
 }
 
 export default function AgendamentosPage() {
-  // --- ESTADOS DE DADOS ---
   const [user, setUser] = useState<User | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
 
-  // --- ESTADOS DE UI ---
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -39,9 +38,9 @@ export default function AgendamentosPage() {
     type: "success" | "error";
   } | null>(null);
 
-  // --- ESTADOS DE PAGINAÇÃO ---
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4; // Solicitado: 5 itens por página
+  const itemsPerPage = 4;
 
   useEffect(() => {
     const userCookie = Cookies.get("user");
@@ -52,7 +51,6 @@ export default function AgendamentosPage() {
     }
   }, []);
 
-  // Helper de Toast
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
   };
@@ -87,23 +85,21 @@ export default function AgendamentosPage() {
     try {
       await api.put(`/appointments/${id}`, { status });
 
-      // Atualiza localmente
       setAppointments((prev) =>
-        prev.map((app) => (app.id === id ? { ...app, status } : app))
+        prev.map((app) => (app.id === id ? { ...app, status } : app)),
       );
 
       showToast(
         status === "approved"
           ? "Agendamento aprovado!"
           : "Agendamento cancelado.",
-        "success"
+        "success",
       );
     } catch (err) {
       showToast("Erro ao atualizar status.", "error");
     }
   }
 
-  // --- HELPERS ---
   function getRoomName(appt: any) {
     if (appt.room_details?.name) return appt.room_details.name;
     if (appt.Room?.name) return appt.Room.name;
@@ -158,11 +154,18 @@ export default function AgendamentosPage() {
     );
   });
 
-  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+  const sortedAppointments = [...filteredAppointments].sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
 
-  const paginatedAppointments = filteredAppointments.slice(
+    return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+  });
+
+  const totalPages = Math.ceil(sortedAppointments.length / itemsPerPage);
+
+  const paginatedAppointments = sortedAppointments.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
@@ -174,6 +177,10 @@ export default function AgendamentosPage() {
   };
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
+  };
+
+  const handleSortToggle = () => {
+    setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
   };
 
   return (
@@ -225,6 +232,7 @@ export default function AgendamentosPage() {
           </div>
         </div>
 
+        {/* CONTEÚDO */}
         <div className="flex-1 flex flex-col w-full overflow-x-auto">
           {loading ? (
             <Loading />
@@ -232,8 +240,19 @@ export default function AgendamentosPage() {
             <table className="w-full text-left text-sm border-collapse table-fixed min-w-[1000px]">
               <thead>
                 <tr>
-                  <th className="w-[20%] py-4 px-6 font-semibold text-gray-900 border-b border-[#D7D7D7]">
-                    Data agendamento ↕
+                  {/* CABEÇALHO ORDENÁVEL */}
+                  <th
+                    className="w-[20%] py-4 px-6 font-semibold text-gray-900 border-b border-[#D7D7D7] cursor-pointer hover:bg-gray-50 transition-colors select-none group"
+                    onClick={handleSortToggle}
+                    title="Clique para ordenar"
+                  >
+                    <div className="flex items-center gap-1">
+                      Data agendamento
+                      {/* Ícone dinâmico */}
+                      <span className="text-gray-400 group-hover:text-black transition-colors">
+                        {sortOrder === "desc" ? "↓" : "↑"}
+                      </span>
+                    </div>
                   </th>
                   <th className="w-[25%] py-4 px-4 font-semibold text-gray-900 border-b border-[#D7D7D7]">
                     Nome
@@ -254,7 +273,7 @@ export default function AgendamentosPage() {
                   <tr
                     key={item.id}
                     className={`${getRowBackground(
-                      item.status
+                      item.status,
                     )} border-b border-[#D7D7D7] last:border-0 transition-colors`}
                   >
                     <td className="py-5 px-6 text-gray-600 align-middle">
@@ -278,7 +297,7 @@ export default function AgendamentosPage() {
                     <td className="py-5 px-4 align-middle">
                       <span
                         className={`px-4 py-1.5 rounded-full text-xs font-medium border inline-block whitespace-nowrap ${getBadgeStyle(
-                          item.status
+                          item.status,
                         )}`}
                       >
                         {getStatusText(item.status)}
@@ -334,29 +353,21 @@ export default function AgendamentosPage() {
           <button
             onClick={handlePrevPage}
             disabled={currentPage === 1}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={18} />
           </button>
 
-          <span className="text-sm font-medium text-gray-700 mx-2">
-            {currentPage} de {totalPages}
-          </span>
+          <div className="w-8 h-8 flex items-center justify-center rounded-md bg-black text-white text-sm font-bold">
+            {currentPage}
+          </div>
 
           <button
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={18} />
           </button>
         </div>
       )}

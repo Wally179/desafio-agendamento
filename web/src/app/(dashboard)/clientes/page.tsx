@@ -32,7 +32,6 @@ interface User {
 
 export default function ClientesPage() {
   const [users, setUsers] = useState<User[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [toast, setToast] = useState<{
@@ -40,8 +39,9 @@ export default function ClientesPage() {
     type: "success" | "error";
   } | null>(null);
 
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 4;
 
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -74,11 +74,17 @@ export default function ClientesPage() {
     );
   });
 
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+  });
 
-  const paginatedUsers = filteredUsers.slice(
+  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
+
+  const paginatedUsers = sortedUsers.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
@@ -92,8 +98,12 @@ export default function ClientesPage() {
     if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
   };
 
+  const handleSortToggle = () => {
+    setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+  };
+
   return (
-    <div className="w-full md:max-w-full max-w-[calc(100vw-32px)] mx-auto pb-12">
+    <div className="w-full md:max-w-full max-w-[calc(100vw-32px)] mx-auto">
       {toast && (
         <Toast
           message={toast.message}
@@ -135,8 +145,17 @@ export default function ClientesPage() {
             <table className="w-full text-left text-sm border-collapse table-fixed min-w-[1000px]">
               <thead>
                 <tr className="bg-white border-b border-gray-100">
-                  <th className="w-[15%] py-4 pl-4 md:pl-6 pr-2 font-semibold text-gray-900">
-                    Data de cadastro ↕
+                  <th
+                    className="w-[15%] py-4 pl-4 md:pl-6 pr-2 font-semibold text-gray-900 cursor-pointer hover:bg-gray-50 transition-colors select-none group"
+                    onClick={handleSortToggle}
+                    title="Clique para ordenar por data"
+                  >
+                    <div className="flex items-center gap-1">
+                      Data de cadastro
+                      <span className="text-gray-400 group-hover:text-black transition-colors">
+                        {sortOrder === "desc" ? "↓" : "↑"}
+                      </span>
+                    </div>
                   </th>
                   <th className="w-[20%] py-4 px-4 font-semibold text-gray-900">
                     Nome
@@ -163,13 +182,13 @@ export default function ClientesPage() {
                         ? format(
                             new Date(user.createdAt),
                             "dd/MM/yyyy 'às' HH:mm",
-                            { locale: ptBR }
+                            { locale: ptBR },
                           )
                         : "-"}
                     </td>
 
                     <td className="py-5 px-4 align-middle">
-                      <div className="font-bold text-gray-900 text-base">
+                      <div className="font-bold text-gray-900 text-base truncate">
                         {user.name} {user.surname}
                       </div>
                       <div className="text-gray-500 text-xs mt-0.5">
@@ -231,34 +250,26 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {!loading && filteredUsers.length > 0 && (
-        <div className="flex justify-end items-center gap-2 mt-4 select-none">
+      {!loading && sortedUsers.length > 0 && (
+        <div className="flex justify-center items-center gap-2 mt-4 select-none">
           <button
             onClick={handlePrevPage}
             disabled={currentPage === 1}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={18} />
           </button>
 
-          <span className="text-sm font-medium text-gray-700 mx-2">
-            {currentPage} de {totalPages}
-          </span>
+          <div className="w-8 h-8 flex items-center justify-center rounded-md bg-black text-white text-sm font-bold">
+            {currentPage}
+          </div>
 
           <button
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={18} />
           </button>
         </div>
       )}

@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  ArrowUpDown,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,8 +57,8 @@ export default function ClientAppointmentsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true); // Loading da página (tabela)
-  const [isSubmitting, setIsSubmitting] = useState(false); // Loading do botão (modal)
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
   const [toast, setToast] = useState<{
@@ -65,6 +66,7 @@ export default function ClientAppointmentsPage() {
     type: "success" | "error";
   } | null>(null);
 
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
 
@@ -83,6 +85,7 @@ export default function ClientAppointmentsPage() {
 
   const fetchAppointments = useCallback(async () => {
     try {
+      setLoading(true);
       const userCookie = Cookies.get("user");
       if (userCookie) {
         const user = JSON.parse(userCookie);
@@ -114,7 +117,7 @@ export default function ClientAppointmentsPage() {
   const filteredAppointments = appointments.filter((appt) => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
-    const roomName = appt.Room?.name || appt.room || "";
+    const roomName = getRoomName(appt);
 
     return (
       roomName.toLowerCase().includes(searchLower) ||
@@ -122,11 +125,18 @@ export default function ClientAppointmentsPage() {
     );
   });
 
-  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+  const sortedAppointments = [...filteredAppointments].sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
 
-  const paginatedAppointments = filteredAppointments.slice(
+    return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+  });
+
+  const totalPages = Math.ceil(sortedAppointments.length / itemsPerPage);
+
+  const paginatedAppointments = sortedAppointments.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
@@ -138,6 +148,10 @@ export default function ClientAppointmentsPage() {
   };
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
+  };
+
+  const handleSortToggle = () => {
+    setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
   };
 
   async function handleCreate(data: AppointmentFormData) {
@@ -214,7 +228,8 @@ export default function ClientAppointmentsPage() {
           onClose={() => setToast(null)}
         />
       )}
-      <div className="bg-white border border-[#D7D7D7] rounded-lg flex flex-col w-full shadow-sm overflow-hidden max-h-[500px]">
+
+      <div className="bg-white border border-[#D7D7D7] rounded-lg flex flex-col w-full shadow-sm overflow-hidden ">
         <div className="p-6 border-b border-gray-100">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex flex-col md:flex-row gap-4 w-full md:flex-1">
@@ -251,8 +266,17 @@ export default function ClientAppointmentsPage() {
             <table className="w-full text-left text-sm border-collapse table-fixed min-w-[1000px]">
               <thead>
                 <tr>
-                  <th className="w-[20%] py-4 px-6 font-semibold text-gray-900 border-b border-[#D7D7D7]">
-                    Data agendamento ↕
+                  <th
+                    className="w-[20%] py-4 px-6 font-semibold text-gray-900 border-b border-[#D7D7D7] cursor-pointer hover:bg-gray-50 transition-colors select-none group"
+                    onClick={handleSortToggle}
+                    title="Clique para ordenar"
+                  >
+                    <div className="flex items-center gap-1">
+                      Data agendamento
+                      <span className="text-gray-400 group-hover:text-black transition-colors">
+                        {sortOrder === "desc" ? "↓" : "↑"}
+                      </span>
+                    </div>
                   </th>
                   <th className="w-[25%] py-4 px-4 font-semibold text-gray-900 border-b border-[#D7D7D7]">
                     Nome
@@ -273,7 +297,7 @@ export default function ClientAppointmentsPage() {
                   <tr
                     key={appt.id}
                     className={`${getRowBackground(
-                      appt.status
+                      appt.status,
                     )} border-b border-[#D7D7D7] last:border-0 transition-colors`}
                   >
                     <td className="py-5 px-6 text-gray-600 align-middle">
@@ -297,7 +321,7 @@ export default function ClientAppointmentsPage() {
                     <td className="py-5 px-4 align-middle">
                       <span
                         className={`px-4 py-1.5 rounded-full text-xs font-medium border inline-block whitespace-nowrap ${getBadgeStyle(
-                          appt.status
+                          appt.status,
                         )}`}
                       >
                         {getStatusText(appt.status)}
@@ -334,32 +358,25 @@ export default function ClientAppointmentsPage() {
           <button
             onClick={handlePrevPage}
             disabled={currentPage === 1}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={18} />
           </button>
 
-          <span className="text-sm font-medium text-gray-700 mx-2">
-            {currentPage} de {totalPages}
-          </span>
+          <div className="w-8 h-8 flex items-center justify-center rounded-md bg-black text-white text-sm font-bold">
+            {currentPage}
+          </div>
 
           <button
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={18} />
           </button>
         </div>
       )}
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">

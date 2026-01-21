@@ -8,12 +8,13 @@ import {
   List,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
 } from "lucide-react";
 import api from "@/services/api";
 import Cookies from "js-cookie";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Loading } from "@/components/Loading"; // Componente padronizado
+import { Loading } from "@/components/Loading";
 
 interface UserData {
   name: string;
@@ -35,6 +36,7 @@ export default function LogsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
 
@@ -71,11 +73,17 @@ export default function LogsPage() {
     return actionMatch || moduleMatch || userMatch;
   });
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const sortedLogs = [...filteredLogs].sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+  });
 
-  const paginatedLogs = filteredLogs.slice(
+  const totalPages = Math.ceil(sortedLogs.length / itemsPerPage);
+
+  const paginatedLogs = sortedLogs.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
@@ -87,6 +95,10 @@ export default function LogsPage() {
   };
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
+  };
+
+  const handleSortToggle = () => {
+    setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
   };
 
   return (
@@ -108,7 +120,6 @@ export default function LogsPage() {
                   className="outline-none w-full text-sm text-gray-700 placeholder:text-gray-400 bg-transparent"
                 />
               </div>
-
               <div className="border border-gray-300 rounded px-3 py-2.5 w-full md:w-48 flex items-center justify-between text-gray-500 text-sm cursor-pointer hover:border-gray-400 transition bg-white">
                 <span>Selecione</span>
                 <Calendar size={18} />
@@ -139,8 +150,17 @@ export default function LogsPage() {
                   <th className="w-[25%] py-4 px-4 font-semibold text-gray-900 border-b border-[#D7D7D7]">
                     Módulo
                   </th>
-                  <th className="w-[25%] py-4 px-6 font-semibold text-gray-900 text-right border-b border-[#D7D7D7]">
-                    Data e horário ↕
+                  <th
+                    className="w-[25%] py-4 px-6 font-semibold text-gray-900 text-right border-b border-[#D7D7D7] cursor-pointer hover:bg-gray-50 transition-colors select-none group"
+                    onClick={handleSortToggle}
+                    title="Clique para ordenar por data"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Data e horário
+                      <span className="text-gray-400 group-hover:text-black transition-colors">
+                        {sortOrder === "desc" ? "↓" : "↑"}
+                      </span>
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -150,7 +170,6 @@ export default function LogsPage() {
                     key={log.id}
                     className="hover:bg-[#F9FAFB] transition-colors border-b border-[#D7D7D7] last:border-0"
                   >
-                    {/* Coluna Cliente */}
                     {isAdmin && (
                       <td className="py-5 px-6 align-middle">
                         {log.user ? (
@@ -167,15 +186,11 @@ export default function LogsPage() {
                         )}
                       </td>
                     )}
-
-                    {/* Coluna Atividade */}
                     <td className="py-5 px-4 align-middle">
                       <span className="bg-gray-100 text-gray-700 text-xs px-4 py-1.5 rounded-full font-medium border border-gray-200 inline-block whitespace-nowrap">
                         {log.action}
                       </span>
                     </td>
-
-                    {/* Coluna Módulo */}
                     <td className="py-5 px-4 align-middle">
                       <span className="bg-gray-100 text-gray-700 text-xs px-4 py-1.5 rounded-full font-medium border border-gray-200 inline-flex items-center gap-2 whitespace-nowrap">
                         {log.module === "Agendamento" ? (
@@ -186,16 +201,12 @@ export default function LogsPage() {
                         {log.module}
                       </span>
                     </td>
-
-                    {/* Coluna Data */}
                     <td className="py-5 px-6 align-middle text-right">
                       <span className="bg-gray-100 text-gray-600 text-xs px-4 py-1.5 rounded-full border border-gray-200 inline-block whitespace-nowrap">
                         {format(
                           new Date(log.createdAt),
                           "dd/MM/yyyy 'às' HH:mm",
-                          {
-                            locale: ptBR,
-                          }
+                          { locale: ptBR },
                         )}
                       </span>
                     </td>
@@ -221,35 +232,26 @@ export default function LogsPage() {
         </div>
       </div>
 
-      {/* CONTROLES DE PAGINAÇÃO */}
       {!loading && filteredLogs.length > 0 && (
         <div className="flex justify-center items-center gap-2 mt-4 select-none">
           <button
             onClick={handlePrevPage}
             disabled={currentPage === 1}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === 1
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={18} />
           </button>
 
-          <span className="text-sm font-medium text-gray-700 mx-2">
-            {currentPage} de {totalPages}
-          </span>
+          <div className="w-8 h-8 flex items-center justify-center rounded-md bg-black text-white text-sm font-bold">
+            {currentPage}
+          </div>
 
           <button
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
-            className={`w-8 h-8 flex items-center justify-center rounded transition ${
-              currentPage === totalPages
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-black text-white transition hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={18} />
           </button>
         </div>
       )}
