@@ -4,17 +4,17 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import api from "@/services/api";
 import axios from "axios";
 import Cookies from "js-cookie";
+import { Toast } from "@/components/Toast";
 
-// Schema de validação (Senha é opcional na edição)
 const profileSchema = z.object({
   name: z.string().min(1, { message: "Nome é obrigatório" }),
   surname: z.string().min(1, { message: "Sobrenome é obrigatório" }),
   email: z.string().email({ message: "E-mail inválido" }),
-  password: z.string().optional(), // Senha opcional
+  password: z.string().optional(),
   zip_code: z.string().min(8, { message: "CEP inválido" }),
   street: z.string().min(1, { message: "Endereço é obrigatório" }),
   number: z.string().min(1, { message: "Número é obrigatório" }),
@@ -30,18 +30,25 @@ export default function ProfilePage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
-    reset, // Usado para preencher o formulário com dados do banco
-    formState: { errors, isDirty }, // isDirty diz se o usuário mudou algo
+    reset,
+    formState: { errors },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
   });
 
-  // 1. Carregar dados do usuário ao abrir a tela
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+  };
+
   useEffect(() => {
     async function loadProfile() {
       const userCookie = Cookies.get("user");
@@ -50,11 +57,9 @@ export default function ProfilePage() {
         setUserId(user.id);
 
         try {
-          // Busca dados atualizados do backend
           const response = await api.get(`/users/${user.id}`);
           const userData = response.data;
 
-          // Preenche o formulário
           reset({
             name: userData.name,
             surname: userData.surname,
@@ -66,23 +71,23 @@ export default function ProfilePage() {
             district: userData.district,
             city: userData.city,
             state: userData.state,
-            password: "", // Senha vem vazia por segurança
+            password: "",
           });
         } catch (error) {
           console.error("Erro ao carregar perfil", error);
+          showToast("Erro ao carregar dados do perfil.", "error");
         }
       }
     }
     loadProfile();
   }, [reset]);
 
-  // 2. Busca de CEP (Igual ao cadastro)
   async function handleBlurCep(e: React.FocusEvent<HTMLInputElement>) {
     const cep = e.target.value.replace(/\D/g, "");
     if (cep.length === 8) {
       try {
         const response = await axios.get(
-          `https://viacep.com.br/ws/${cep}/json/`
+          `https://viacep.com.br/ws/${cep}/json/`,
         );
         if (!response.data.erro) {
           setValue("street", response.data.logradouro);
@@ -96,7 +101,6 @@ export default function ProfilePage() {
     }
   }
 
-  // 3. Salvar Alterações
   async function handleUpdate(data: ProfileFormData) {
     if (!userId) return;
 
@@ -105,24 +109,29 @@ export default function ProfilePage() {
 
       const response = await api.put(`/users/${userId}`, data);
 
-      // Atualiza o cookie com o nome novo (para a Sidebar atualizar se der F5)
       const updatedUser = response.data;
       Cookies.set("user", JSON.stringify(updatedUser), { expires: 7 });
 
-      alert("Perfil atualizado com sucesso!");
-      // A senha a gente limpa do form depois de salvar
+      showToast("Perfil atualizado com sucesso!", "success");
       setValue("password", "");
     } catch (error) {
-      alert("Erro ao atualizar perfil.");
       console.error(error);
+      showToast("Erro ao atualizar perfil.", "error");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    // ADICIONADO: 'max-w-xl mx-auto' para centralizar tudo na tela
     <div className="w-full max-w-xl mx-auto">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 w-full">
         <form onSubmit={handleSubmit(handleUpdate)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -275,9 +284,18 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white py-3 rounded font-bold hover:bg-gray-800 transition mt-4"
+            className={`w-full bg-black text-white py-3 rounded font-bold transition mt-4 flex items-center justify-center gap-2 ${
+              loading ? "opacity-75 cursor-not-allowed" : "hover:bg-gray-800"
+            }`}
           >
-            {loading ? "Salvando..." : "Salvar"}
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin w-5 h-5" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar"
+            )}
           </button>
         </form>
       </div>
